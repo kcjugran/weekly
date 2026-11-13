@@ -20,7 +20,12 @@ const store = {
 let base = ON_PAGES ? store.get('weekly-api') : '';
 let token = store.get('weekly-session');
 
+let lastLookup = 0;
 async function findBackend() {
+  // The PC's address only changes when it restarts; don't spend GitHub's 60/hour lookups
+  // re-asking every minute while it's off.
+  if (base && Date.now() - lastLookup < 90_000) throw new Error('looked up recently');
+  lastLookup = Date.now();
   const r = await fetch(BACKEND_JSON, { headers: { Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' });
   if (!r.ok) throw new Error('lookup');
   const api = String((await r.json()).api || '');
@@ -32,12 +37,37 @@ async function findBackend() {
 let data = null;
 let view = 'today';   // 'today' or a weekday ('mon'...)
 
+// ---- working while the PC is off -------------------------------------------------
+// The last data seen is kept on the phone, so the page still shows (and edits) the week.
+// Changes the PC can't take right now wait in an outbox here and go out, in order, the next
+// time the PC answers. Every change is safe to send twice (tick = set, add carries its own
+// slotId, remove of a gone slot is a no-op), so a reply lost mid-send costs nothing.
+const OUTBOX = 'weekly-outbox';
+const CACHE = 'weekly-data';
+const outbox = {
+  list() { try { return JSON.parse(store.get(OUTBOX) || '[]'); } catch { return []; } },
+  save(list) { store.set(OUTBOX, list.length ? JSON.stringify(list) : ''); },
+};
+function keep() { if (data) store.set(CACHE, JSON.stringify(data)); }
+try { data = JSON.parse(store.get(CACHE) || 'null'); } catch { data = null; }
+
+const newId = () => [...crypto.getRandomValues(new Uint8Array(8))]   // randomUUID needs https
+  .map(b => b.toString(16).padStart(2, '0')).join('');
+const norm = name => name.trim().replace(/\s+/g, ' ').toLowerCase();
+
 function banner(text) {
   el('banner').textContent = text || '';
   el('banner').hidden = !text;
 }
 
 const OFFLINE = "Can't reach your PC. Is it on, with Weekly running?";
+// Cloudflare answers for a PC that's gone with 502-530 (and no CORS header, so a fetch error).
+const PC_GONE = s => s === 502 || s === 503 || s === 504 || (s >= 520 && s <= 530);
+
+function showPending() {
+  const n = outbox.list().length;
+  if (n) banner(`PC is offline. ${n} change${n === 1 ? '' : 's'} saved on this phone, sent when it's back.`);
+}
 
 async function send(path, body) {
   if (ON_PAGES && !base) await findBackend();
@@ -63,8 +93,13 @@ async function call(path, body, { quiet = false } = {}) {
       r = await send(path, body);
     }
   } catch {
+    r = null;
+  }
+  if (!r || PC_GONE(r.status)) {
     banner(OFFLINE);
-    throw new Error('offline');
+    const err = new Error('offline');
+    err.offline = true;
+    throw err;
   }
   if (r.status === 401 && !quiet) { showGate('login'); throw new Error('login'); }
   const json = await r.json().catch(() => ({}));
@@ -76,6 +111,52 @@ async function call(path, body, { quiet = false } = {}) {
   }
   banner('');
   return json;
+}
+
+/** Send a change now, or keep it for later if the PC is off. The screen already shows it. */
+async function write(path, body) {
+  keep();
+  if (outbox.list().length) {           // older changes are still waiting: stay behind them
+    outbox.save([...outbox.list(), { path, body }]);
+    showPending();
+    flush().then(afterFlush);
+    return;
+  }
+  try {
+    data = await call(path, body);
+    keep();
+    render();
+  } catch (e) {
+    if (e.offline) { outbox.save([{ path, body }]); showPending(); }
+    else if (e.message !== 'login') load();   // the PC refused it: show what it really has
+  }
+}
+
+let flushing = null;
+/** Send the waiting changes, oldest first. Stops at the first one the PC can't take yet. */
+function flush() {
+  if (!flushing) {
+    flushing = (async () => {
+      while (outbox.list().length) {
+        const [op] = outbox.list();
+        try {
+          await call(op.path, op.body, { quiet: true });
+        } catch (e) {
+          if (e.status === 401) { showGate('login'); break; }
+          if (e.offline || e.status === 429 || e.status >= 500) break;   // keep it for next time
+          // any other 4xx: the PC refused this one change for good; drop it so the rest can go
+        }
+        const rest = outbox.list();
+        rest.shift();
+        outbox.save(rest);
+      }
+    })().finally(() => { flushing = null; });
+  }
+  return flushing;
+}
+async function afterFlush() {
+  if (outbox.list().length) { showPending(); return; }
+  await load();
 }
 
 // ---- login (ID + password, remembered on this phone) ----------------------------
@@ -119,6 +200,7 @@ el('logout').addEventListener('click', async () => {
   try { await call('/api/logout', {}, { quiet: true }); } catch { /* logged out here anyway */ }
   token = '';
   store.set('weekly-session', '');
+  store.set(CACHE, '');
   data = null;
   showGate('login');
 });
@@ -224,7 +306,10 @@ function render() {
 // ---- actions --------------------------------------------------------------------
 async function load() {
   if (!token) return;
-  try { data = await call('/api/data'); } catch { return; }
+  await flush();
+  if (outbox.list().length) { render(); showPending(); return; }   // PC still off: keep local copy
+  try { data = await call('/api/data'); } catch { render(); return; }
+  keep();
   el('logout').hidden = false;
   // Same as the widget: keep today's copy of the plan so later edits never rewrite history.
   const k = todayKey();
@@ -243,34 +328,32 @@ async function toggle(item) {
   const ticks = { ...(day.ticks || {}) };
   if (done) ticks[item.slotId] = true; else delete ticks[item.slotId];
   data.days[k] = { ...day, ticks };
-  render();   // optimistic
-  try { data = await call('/api/tick', { key: k, slotId: item.slotId, done }); render(); }
-  catch { load(); }
+  render();   // show it now; saving follows
+  await write('/api/tick', { key: k, slotId: item.slotId, done });
 }
 
 async function remove(wd, slotId, name) {
   if (!confirm(`Remove "${name}" from ${DAY_NAMES[wd]}?`)) return;
   data.template.days[wd] = (data.template.days[wd] || []).filter(s => s.slotId !== slotId);
   render();
-  try { data = await call('/api/remove', { weekday: wd, slotId }); render(); }
-  catch { load(); }
+  await write('/api/remove', { weekday: wd, slotId });
 }
 
 el('add-time').addEventListener('input', () => { el('add-time').dataset.touched = '1'; });
 el('add').addEventListener('submit', async e => {
   e.preventDefault();
-  const name = el('add-name').value.trim();
+  const name = el('add-name').value.trim().replace(/\s+/g, ' ');
   const time = el('add-time').value;
-  if (!name || !/^\d\d:\d\d$/.test(time) || view === 'today') return;
-  const btn = el('add').querySelector('button');
-  btn.disabled = true;
-  try {
-    data = await call('/api/add', { weekday: view, time, name });
-    el('add-name').value = '';
-    delete el('add-time').dataset.touched;
-    render();
-  } catch { /* banner says why; the typed text stays */ }
-  btn.disabled = false;
+  if (!data || !name || !/^\d\d:\d\d$/.test(time) || view === 'today') return;
+  // Same name = same activity (shared streak); the PC makes the same call when it gets this.
+  const slotId = newId();
+  let activityId = Object.keys(data.activities).find(id => norm(data.activities[id].name) === norm(name));
+  if (!activityId) { activityId = newId(); data.activities[activityId] = { name }; }
+  (data.template.days[view] = data.template.days[view] || []).push({ slotId, activityId, time });
+  el('add-name').value = '';
+  delete el('add-time').dataset.touched;
+  render();
+  await write('/api/add', { weekday: view, time, name, slotId });
 });
 
 // Fresh data whenever the page comes back, and every minute while it's open.
@@ -279,7 +362,7 @@ document.addEventListener('visibilitychange', refresh);
 setInterval(refresh, 60_000);
 
 async function boot() {
-  if (token) return load();
+  if (token) { if (data) { render(); el('logout').hidden = false; } return load(); }
   try {
     const s = await call('/api/status', null, { quiet: true });
     showGate(s.login ? 'login' : 'setup');
