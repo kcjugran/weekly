@@ -296,3 +296,4 @@ input:focus { outline: none; border-color: var(--accent); }
 .notime { color: var(--gray-2); font-size: 15px; }
 .opt { margin-left: 6px; font-weight: 400; letter-spacing: 0.04em; text-transform: none; color: var(--gray-2); }
 #add-name, #picks-name { flex: 1 1 0; min-width: 0; }
+#saved-list:empty::before { content: attr(data-empty); display: block; padding: 12px 0; color: var(--gray-2); font-size: 15px; }

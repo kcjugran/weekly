@@ -94,7 +94,7 @@ export function dayItems(dayDoc, template, activities, key, todayK) {
       skipped: skipped[s.slotId] === true,
       extra: s.extra,
     }))
-    .sort((a, b) => a.time.localeCompare(b.time) || a.slotId.localeCompare(b.slotId));
+    .sort((a, b) => byTime(a, b) || a.slotId.localeCompare(b.slotId));
 }
 
 /**
@@ -168,11 +168,16 @@ export function suggestActivities(activities, template, typed, limit = 8) {
   return out.slice(0, limit).map(({ id, name, uses }) => ({ id, name, uses }));
 }
 
-export function sortSlots(slots) {
-  return slots.slice().sort((a, b) => a.time.localeCompare(b.time));
+/** Timed ones first, in time order; ones with no set time ('') after them. */
+export function byTime(a, b) {
+  return (!a.time) - (!b.time) || a.time.localeCompare(b.time);
 }
 
-/** '' = no set time ("do it today"): shown without a time, listed before the timed ones. */
+export function sortSlots(slots) {
+  return slots.slice().sort(byTime);
+}
+
+/** '' = no set time ("do it today"): shown without a time, listed after the timed ones. */
 export function formatTime(hhmm) {
   if (!hhmm) return { hm: '', ap: '' };
   const [h, m] = hhmm.split(':').map(Number);

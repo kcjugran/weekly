@@ -1,6 +1,6 @@
 // Phone page: today's ticks + each day's plan, talking to the Weekly app on the PC (app/phone.py).
 import { WEEKDAYS, todayKey, weekdayOf, parseKey, dayItems, formatTime, needsSnapshot,
-  templateSlots, streakFor, sortSlots, resolveActivity } from './shared/model.js';
+  templateSlots, streakFor, sortSlots, resolveActivity, byTime } from './shared/model.js';
 
 const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
 const el = id => document.getElementById(id);
@@ -293,7 +293,7 @@ function renderPlan(wd) {
 function renderChips(wd) {
   const chips = el('chips');
   chips.replaceChildren();
-  for (const p of [...presets()].sort((a, b) => a.time.localeCompare(b.time))) {
+  for (const p of [...presets()].sort(byTime)) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'chip';
@@ -313,13 +313,21 @@ function renderChips(wd) {
   edit.className = 'chip chip-edit';
   edit.textContent = presets().length ? 'Edit picks' : '+ Quick picks';
   edit.addEventListener('click', openPicks);
-  chips.append(edit);
+  const auto = document.createElement('button');
+  auto.type = 'button';
+  auto.className = 'chip chip-edit';
+  auto.textContent = 'Autofill';
+  auto.addEventListener('click', openSaved);
+  chips.append(edit, auto);
 }
 
 function renderNames() {
   const names = el('names');
   names.replaceChildren();
-  for (const n of [...new Set(Object.values(data.activities).map(a => a.name))].sort()) {
+  // Only names he saved (plus his quick picks): not every one-off or mistype ever typed.
+  const seen = new Map();
+  for (const n of [...savedNames(), ...presets().map(p => p.name)]) if (!seen.has(norm(n))) seen.set(norm(n), n);
+  for (const n of [...seen.values()].sort((a, b) => a.localeCompare(b))) {
     const o = document.createElement('option');
     o.value = n;
     names.append(o);
@@ -429,9 +437,14 @@ function setAddOpen(open) {
   el('add-toggle').textContent = open ? '×' : '+';
   el('add-toggle').setAttribute('aria-expanded', String(open));
   el('add-toggle').setAttribute('aria-label', open ? 'Close' : 'Add activity');
-  if (open) el('add-name').focus(); else setAddTime(false);
+  if (open) el('add-name').focus(); else { setAddTime(false); setAddSave(false); }
 }
 el('add-toggle').addEventListener('click', () => setAddOpen(!el('add').classList.contains('open')));
+const setAddSave = on => {
+  el('add-save').setAttribute('aria-pressed', String(on));
+  el('add-save').setAttribute('aria-label', on ? 'Will be saved to autofill' : 'Save to autofill');
+};
+el('add-save').addEventListener('click', () => setAddSave(el('add-save').getAttribute('aria-pressed') !== 'true'));
 el('add-name').addEventListener('keydown', e => { if (e.key === 'Escape') setAddOpen(false); });
 
 el('add').addEventListener('submit', async e => {
@@ -439,9 +452,12 @@ el('add').addEventListener('submit', async e => {
   if (view === 'today') return;
   const name = el('add-name').value;
   const time = timeOf(el('add-time'));
+  const save = el('add-save').getAttribute('aria-pressed') === 'true';
   el('add-name').value = '';
   setAddTime(false);          // next one starts without a time again
+  setAddSave(false);          // and not saved, unless asked again
   await addSlot(view, time, name);
+  if (save) await saveName(name);
 });
 
 // ---- edit one activity (that weekday, every week) ---------------------------------
@@ -490,7 +506,7 @@ const presets = () => (data && Array.isArray(data.presets) ? data.presets : []);
 function renderPicks() {
   const list = el('picks-list');
   list.replaceChildren();
-  for (const p of [...presets()].sort((a, b) => a.time.localeCompare(b.time))) {
+  for (const p of [...presets()].sort(byTime)) {
     const row = el('plan-tpl').content.firstElementChild.cloneNode(true);
     fillTime(row, p.time);
     row.querySelector('.name').textContent = p.name;
@@ -521,6 +537,43 @@ el('picks-add').addEventListener('submit', e => {
   setPickTime(false);
   // One pick per name: adding Gym again just changes its time.
   savePicks([...presets().filter(p => norm(p.name) !== norm(name)), { name, time }]);
+});
+
+// ---- autofill: names he chose to save --------------------------------------------
+const savedNames = () => (data && Array.isArray(data.saved) ? data.saved : []);
+async function setSaved(list) {
+  data.saved = list;
+  renderSaved();
+  render();
+  await write('/api/saved', { saved: list });
+}
+async function saveName(typed) {
+  const name = typed.trim().replace(/\s+/g, ' ');
+  if (!name || savedNames().some(n => norm(n) === norm(name))) return;
+  if (savedNames().length >= 200) { flash('Autofill is full (200)'); return; }
+  await setSaved([...savedNames(), name]);
+}
+function renderSaved() {
+  const list = el('saved-list');
+  list.replaceChildren();
+  el('saved-list').dataset.empty = savedNames().length ? '' : 'Nothing saved yet';
+  for (const n of [...savedNames()].sort((a, b) => a.localeCompare(b))) {
+    const row = el('plan-tpl').content.firstElementChild.cloneNode(true);
+    row.querySelector('.time').remove();
+    row.querySelector('.name').textContent = n;
+    row.querySelector('.open').disabled = true;
+    row.querySelector('.del').setAttribute('aria-label', `Remove ${n} from autofill`);
+    row.querySelector('.del').addEventListener('click', () => setSaved(savedNames().filter(x => x !== n)));
+    list.append(row);
+  }
+}
+function openSaved() { renderSaved(); el('saved').hidden = false; }
+el('saved-done').addEventListener('click', () => { el('saved').hidden = true; render(); });
+el('saved-add').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = el('saved-name').value;
+  el('saved-name').value = '';
+  await saveName(name);
 });
 
 // Fresh data whenever the page comes back, and every minute while it's open.
