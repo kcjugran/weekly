@@ -172,7 +172,9 @@ export function sortSlots(slots) {
   return slots.slice().sort((a, b) => a.time.localeCompare(b.time));
 }
 
+/** '' = no set time ("do it today"): shown without a time, listed before the timed ones. */
 export function formatTime(hhmm) {
+  if (!hhmm) return { hm: '', ap: '' };
   const [h, m] = hhmm.split(':').map(Number);
   return { hm: `${((h + 11) % 12) + 1}:${pad(m)}`, ap: h < 12 ? 'AM' : 'PM' };
 }

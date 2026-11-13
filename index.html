@@ -32,11 +32,12 @@
     <form id="add" class="add" autocomplete="off" hidden>
       <button id="add-toggle" class="add-toggle" type="button" aria-expanded="false"
               aria-label="Add activity">+</button>
-      <input id="add-time" class="add-field" type="time" required aria-label="Time">
+      <button id="add-clock" class="clock add-field" type="button" aria-pressed="false" aria-label="Set a time"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <input id="add-name" class="add-field" list="names" placeholder="Activity" maxlength="80" required
              enterkeyhint="done" aria-label="Activity">
       <datalist id="names"></datalist>
       <button class="add-field" type="submit">Add</button>
+      <input id="add-time" class="add-field time-line" type="time" aria-label="Time" hidden>
     </form>
   </main>
 
@@ -46,8 +47,12 @@
   <form id="edit" class="sheet" autocomplete="off" hidden>
     <h2 class="sheet-title">Edit</h2>
     <p id="edit-sub" class="sub"></p>
-    <label for="edit-time">Time</label>
-    <input id="edit-time" type="time" required>
+    <label for="edit-time">Time <span class="opt">optional</span></label>
+    <div class="time-row">
+      <button id="edit-clock" class="clock" type="button" aria-pressed="false" aria-label="Set a time"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <input id="edit-time" type="time" hidden>
+      <span id="edit-notime" class="notime">No set time</span>
+    </div>
     <label for="edit-name">Activity</label>
     <input id="edit-name" list="names" maxlength="80" required enterkeyhint="done">
     <div class="sheet-actions">
@@ -60,12 +65,13 @@
   <!-- Quick picks: the activities you add most, one tap on any day tab -->
   <div id="picks" class="sheet" hidden>
     <h2 class="sheet-title">Quick picks</h2>
-    <p class="sub">One tap on a day adds them at this time</p>
+    <p class="sub">One tap on a day adds them</p>
     <ul id="picks-list" class="list"></ul>
     <form id="picks-add" class="add" autocomplete="off">
-      <input id="picks-time" type="time" value="07:00" required aria-label="Time">
+      <button id="picks-clock" class="clock" type="button" aria-pressed="false" aria-label="Set a time"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <input id="picks-name" list="names" placeholder="Activity" maxlength="80" required enterkeyhint="done" aria-label="Activity">
       <button type="submit">Add</button>
+      <input id="picks-time" class="time-line" type="time" aria-label="Time" hidden>
     </form>
     <div class="sheet-actions"><button id="picks-done" type="button" class="primary">Done</button></div>
   </div>

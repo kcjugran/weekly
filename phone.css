@@ -151,7 +151,6 @@ input {
   color-scheme: dark;
 }
 input:focus { outline: none; border-color: var(--accent); }
-#add-time { flex: 0 0 auto; width: 104px; }
 
 /* Collapsed: just a small round +. Open: × then time, name, Add. */
 .add:not(.open) .add-field { display: none; }
@@ -276,3 +275,24 @@ input:focus { outline: none; border-color: var(--accent); }
 .primary { background: var(--accent); color: var(--accent-ink); }
 .quiet { border: 1px solid var(--line); color: var(--gray-1); }
 .danger { margin-top: 8px; color: #ff8a8a; border: 1px solid rgba(255, 138, 138, 0.3); }
+
+/* ---- optional time: a clock button; the time field appears only when it's on ---- */
+.clock {
+  flex: 0 0 auto;
+  width: 44px; height: 48px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-box);
+  border: 1px solid var(--line);
+  color: var(--gray-2);
+}
+.clock[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.add .clock { background: none; padding: 0; height: 48px; }
+.add .clock[aria-pressed="false"] { color: var(--gray-1); }
+#add, #picks-add { flex-wrap: wrap; }
+.add .time-line { flex: 1 0 100%; width: 100%; order: 10; }
+#add-time { width: 100%; }
+.time-row { display: flex; align-items: center; gap: 8px; }
+.time-row input { flex: 1 1 auto; }
+.notime { color: var(--gray-2); font-size: 15px; }
+.opt { margin-left: 6px; font-weight: 400; letter-spacing: 0.04em; text-transform: none; color: var(--gray-2); }
+#add-name, #picks-name { flex: 1 1 0; min-width: 0; }

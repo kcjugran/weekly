@@ -286,13 +286,6 @@ function renderPlan(wd) {
     row.querySelector('.del').addEventListener('click', () => remove(wd, s.slotId, name));
     list.append(row);
   }
-  // Suggested time: an hour after the last one (the editor's rule).
-  const last = slots.length ? slots[slots.length - 1].time : null;
-  if (!el('add-time').dataset.touched) {
-    el('add-time').value = last
-      ? `${String(Math.min(+last.slice(0, 2) + 1, 23)).padStart(2, '0')}:${last.slice(3)}`
-      : '09:00';
-  }
   renderChips(wd);
 }
 
@@ -309,9 +302,9 @@ function renderChips(wd) {
     name.textContent = p.name;
     const time = document.createElement('span');
     time.className = 'chip-time';
-    time.textContent = `${t.hm}${t.ap === 'AM' ? 'a' : 'p'}`;
+    time.textContent = p.time ? `${t.hm}${t.ap === 'AM' ? 'a' : 'p'}` : '';
     b.append('+ ', name, time);
-    b.setAttribute('aria-label', `Add ${p.name} at ${t.hm} ${t.ap} to ${DAY_NAMES[wd]}`);
+    b.setAttribute('aria-label', `Add ${p.name}${p.time ? ` at ${t.hm} ${t.ap}` : ''} to ${DAY_NAMES[wd]}`);
     b.addEventListener('click', () => addSlot(wd, p.time, p.name));
     chips.append(b);
   }
@@ -378,7 +371,36 @@ async function remove(wd, slotId, name) {
   await write('/api/remove', { weekday: wd, slotId });
 }
 
-el('add-time').addEventListener('input', () => { el('add-time').dataset.touched = '1'; });
+// ---- time is optional: most things are "do it today" ------------------------------
+// A clock button adds a time only when wanted; tapping it again takes the time off.
+function clockToggle(btn, input, suggest) {
+  const set = on => {
+    btn.setAttribute('aria-pressed', String(on));
+    btn.setAttribute('aria-label', on ? 'Remove the time' : 'Set a time');
+    input.hidden = !on;
+    input.value = on ? (input.value || suggest()) : '';
+    btn.dispatchEvent(new Event('timechange'));
+  };
+  btn.addEventListener('click', () => {
+    const on = btn.getAttribute('aria-pressed') !== 'true';
+    set(on);
+    if (on) { input.focus(); try { input.showPicker(); } catch { /* not supported: field is focused */ } }
+  });
+  input.addEventListener('change', () => { if (!input.value) set(false); });   // cleared in the picker
+  return set;
+}
+const timeOf = input => (input.hidden ? '' : input.value);
+// An hour after the last timed one on this day (the editor's rule), else 9:00.
+function suggestedTime() {
+  const timed = sortSlots(data.template.days[view] || []).filter(s => s.time);
+  const last = timed.length ? timed[timed.length - 1].time : null;
+  return last ? `${String(Math.min(+last.slice(0, 2) + 1, 23)).padStart(2, '0')}:${last.slice(3)}` : '09:00';
+}
+const setAddTime = clockToggle(el('add-clock'), el('add-time'), suggestedTime);
+const setPickTime = clockToggle(el('picks-clock'), el('picks-time'), () => '07:00');
+const setEditTime = clockToggle(el('edit-clock'), el('edit-time'), () => '09:00');
+el('edit-clock').addEventListener('timechange', () => { el('edit-notime').hidden = !el('edit-time').hidden; });
+
 function flash(text) {
   banner(text);
   setTimeout(() => { if (el('banner').textContent === text) { banner(''); showPending(); } }, 2200);
@@ -386,12 +408,12 @@ function flash(text) {
 
 async function addSlot(wd, time, name) {
   name = name.trim().replace(/\s+/g, ' ');
-  if (!data || !name || !/^\d\d:\d\d$/.test(time)) return;
+  if (!data || !name || !/^(\d\d:\d\d)?$/.test(time)) return;
   // Same name = same activity (shared streak); the PC makes the same call when it gets this.
   let activityId = Object.keys(data.activities).find(id => norm(data.activities[id].name) === norm(name));
   const day = data.template.days[wd] = data.template.days[wd] || [];
   if (activityId && day.some(s => s.activityId === activityId && s.time === time)) {
-    flash(`${name} is already on ${DAY_NAMES[wd]} at that time`);
+    flash(`${name} is already on ${DAY_NAMES[wd]}${time ? ' at that time' : ''}`);
     return;
   }
   if (!activityId) { activityId = newId(); data.activities[activityId] = { name }; }
@@ -407,7 +429,7 @@ function setAddOpen(open) {
   el('add-toggle').textContent = open ? '×' : '+';
   el('add-toggle').setAttribute('aria-expanded', String(open));
   el('add-toggle').setAttribute('aria-label', open ? 'Close' : 'Add activity');
-  if (open) el('add-name').focus();
+  if (open) el('add-name').focus(); else setAddTime(false);
 }
 el('add-toggle').addEventListener('click', () => setAddOpen(!el('add').classList.contains('open')));
 el('add-name').addEventListener('keydown', e => { if (e.key === 'Escape') setAddOpen(false); });
@@ -416,9 +438,9 @@ el('add').addEventListener('submit', async e => {
   e.preventDefault();
   if (view === 'today') return;
   const name = el('add-name').value;
-  const time = el('add-time').value;
+  const time = timeOf(el('add-time'));
   el('add-name').value = '';
-  delete el('add-time').dataset.touched;
+  setAddTime(false);          // next one starts without a time again
   await addSlot(view, time, name);
 });
 
@@ -430,6 +452,7 @@ function openEdit(wd, slotId) {
   editing = { wd, slotId };
   el('edit-sub').textContent = `Every ${DAY_NAMES[wd]}`;
   el('edit-time').value = slot.time;
+  setEditTime(!!slot.time);
   el('edit-name').value = (data.activities[slot.activityId] || {}).name || '';
   el('edit').hidden = false;
 }
@@ -440,8 +463,8 @@ el('edit').addEventListener('submit', async e => {
   if (!editing) return;
   const { wd, slotId } = editing;
   const name = el('edit-name').value.trim().replace(/\s+/g, ' ');
-  const time = el('edit-time').value;
-  if (!name || !/^\d\d:\d\d$/.test(time)) return;
+  const time = timeOf(el('edit-time'));
+  if (!name || !/^(\d\d:\d\d)?$/.test(time)) return;
   closeEdit();
   const slot = (data.template.days[wd] || []).find(s => s.slotId === slotId);
   if (!slot) return;
@@ -488,13 +511,14 @@ async function savePicks(list) {
 el('picks-add').addEventListener('submit', e => {
   e.preventDefault();
   const typed = el('picks-name').value.trim().replace(/\s+/g, ' ');
-  const time = el('picks-time').value;
-  if (!typed || !/^\d\d:\d\d$/.test(time)) return;
+  const time = timeOf(el('picks-time'));
+  if (!typed || !/^(\d\d:\d\d)?$/.test(time)) return;
   // "gym" picks your existing "Gym", spelled the way you first wrote it.
   const known = Object.values(data.activities).find(a => norm(a.name) === norm(typed));
   const name = known ? known.name : typed;
   if (presets().length >= 30) { flash('30 quick picks is the most'); return; }
   el('picks-name').value = '';
+  setPickTime(false);
   // One pick per name: adding Gym again just changes its time.
   savePicks([...presets().filter(p => norm(p.name) !== norm(name)), { name, time }]);
 });
