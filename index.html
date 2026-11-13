@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0d">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self' https://api.github.com https://*.trycloudflare.com; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Weekly</title>
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="shared/tokens.css">
+  <link rel="stylesheet" href="phone.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1 id="title" class="title">Today</h1>
+      <p id="sub" class="sub"></p>
+    </div>
+    <span id="count" class="count"></span>
+  </header>
+  <div class="bar"><i id="bar"></i></div>
+
+  <nav id="tabs" class="tabs" role="tablist" aria-label="Days"></nav>
+  <p id="banner" class="banner" role="status" hidden></p>
+
+  <main>
+    <ul id="list" class="list"></ul>
+    <p id="empty" class="empty" hidden></p>
+
+    <form id="add" class="add" autocomplete="off" hidden>
+      <input id="add-time" type="time" required aria-label="Time">
+      <input id="add-name" list="names" placeholder="Add activity" maxlength="80" required
+             enterkeyhint="done" aria-label="Activity">
+      <datalist id="names"></datalist>
+      <button type="submit">Add</button>
+    </form>
+  </main>
+
+  <button id="logout" class="logout" type="button" hidden>Log out</button>
+
+  <form id="gate" class="gate" hidden>
+    <h2 id="gate-title" class="gate-title">Log in</h2>
+    <label for="g-user">ID</label>
+    <input id="g-user" name="username" autocomplete="username" autocapitalize="off" autocorrect="off"
+           spellcheck="false" maxlength="64" required>
+    <label for="g-pass">Password</label>
+    <input id="g-pass" name="password" type="password" autocomplete="current-password" maxlength="200" required>
+    <div id="setup-only" hidden>
+      <label for="g-key">Setup key</label>
+      <input id="g-key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <p class="hint">On your PC: Weekly\data\phone_key.txt. Needed once, to create the login.</p>
+    </div>
+    <p id="gate-msg" class="gate-msg" role="alert"></p>
+    <button id="gate-btn" type="submit">Log in</button>
+    <button id="gate-switch" class="linkish" type="button">First time? Create login</button>
+  </form>
+
+  <template id="tick-tpl">
+    <li class="row"><button class="hit" type="button" role="checkbox" aria-checked="false">
+      <span class="box"></span>
+      <span class="time"><span class="hm"></span><span class="ap"></span></span>
+      <span class="name"></span>
+      <span class="streak"><span class="n"></span></span>
+    </button></li>
+  </template>
+  <template id="plan-tpl">
+    <li class="row plan">
+      <span class="time"><span class="hm"></span><span class="ap"></span></span>
+      <span class="name"></span>
+      <button class="del" type="button" aria-label="Remove">&times;</button>
+    </li>
+  </template>
+
+  <script type="module" src="phone.js"></script>
+</body>
+</html>

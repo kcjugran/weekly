@@ -1,0 +1,43 @@
+/*
+ * Weekly — design brief (design-taste Step 1)
+ * Direction : Editorial Premium Dark (house default, his own project)
+ * Display   : Bahnschrift, condensed via font-stretch 75%, uppercase, tight — ships with Win10, zero network
+ * Background: near-black #0b0b0d, laid as a tint over a blurred crop of his own wallpaper
+ * Accent    : #d8ff3e (acid lime — "done / go"), ONE accent, ≤10% of pixels
+ * Signature : the day name dominates the card, with a ghost outline echo of it behind
+ */
+:root {
+  --bg: #0b0b0d;
+  --tint: rgba(11, 11, 13, 0.62);
+  --ink: #f4f4f0;
+  --gray-1: #a8a8a3;
+  --gray-2: #5f5f5b;
+  --line: rgba(255, 255, 255, 0.08);
+  --accent: #d8ff3e;
+  --accent-ink: #0b0b0d;
+
+  --font: 'Bahnschrift', 'Segoe UI', sans-serif;
+  --radius-card: 10px;
+  --radius-box: 6px;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --t-fast: 160ms;
+  --t-med: 220ms;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; }
+}
