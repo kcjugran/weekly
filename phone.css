@@ -47,29 +47,37 @@ main { max-width: 560px; margin: 0 auto; }
 }
 
 /* ---- day tabs ---- */
+/* Today + 7 single letters share the width: everything visible, nothing scrolls sideways. */
 .tabs {
   max-width: 560px;
   margin: 14px auto 6px;
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  display: grid;
+  grid-template-columns: 1.7fr repeat(7, 1fr);
+  gap: 4px;
 }
-.tabs::-webkit-scrollbar { display: none; }
 .tab {
-  flex: 0 0 auto;
-  min-width: 44px;
-  height: 40px;
-  padding: 0 12px;
+  position: relative;
+  min-width: 0;
+  height: 48px;
+  padding: 0;
   border-radius: var(--radius-box);
   border: 1px solid var(--line);
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--gray-1);
 }
+.tab:first-child { font-size: 13px; letter-spacing: 0.1em; }
 .tab.is-today { color: var(--ink); }
+.tab.is-today::after {                       /* dot under today's letter */
+  content: '';
+  position: absolute;
+  left: 50%; bottom: 6px;
+  width: 4px; height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--accent);
+}
 .tab[aria-selected="true"] { background: var(--ink); color: var(--accent-ink); border-color: var(--ink); }
 
 .banner {

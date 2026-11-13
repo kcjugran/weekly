@@ -216,7 +216,8 @@ function renderTabs() {
     b.className = 'tab' + (v === today ? ' is-today' : '');
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(v === view));
-    b.textContent = v === 'today' ? 'Today' : v;
+    b.textContent = v === 'today' ? 'Today' : v[0];   // M T W T F S S: all fit, no sideways scroll
+    if (v !== 'today') b.setAttribute('aria-label', DAY_NAMES[v]);
     b.addEventListener('click', () => { view = v; render(); });
     tabs.append(b);
   }
