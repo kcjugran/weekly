@@ -1,6 +1,6 @@
 // Phone page: today's ticks + each day's plan, talking to the Weekly app on the PC (app/phone.py).
 import { WEEKDAYS, todayKey, weekdayOf, parseKey, dayItems, formatTime, needsSnapshot,
-  templateSlots, streakFor, sortSlots } from './shared/model.js';
+  templateSlots, streakFor, sortSlots, resolveActivity } from './shared/model.js';
 
 const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
 const el = id => document.getElementById(id);
@@ -257,6 +257,9 @@ function renderToday() {
     hit.setAttribute('aria-label', `${t.hm} ${t.ap} ${item.name}`);
     row.classList.toggle('next', item.slotId === nextId);
     hit.addEventListener('click', () => toggle(item));
+    const more = row.querySelector('.more');
+    more.setAttribute('aria-label', `Edit ${item.name}`);
+    more.addEventListener('click', () => openEdit(weekdayOf(k), item.slotId));
     list.append(row);
   }
 }
@@ -276,6 +279,8 @@ function renderPlan(wd) {
     fillTime(row, s.time);
     const name = (data.activities[s.activityId] || {}).name || 'Removed activity';
     row.querySelector('.name').textContent = name;
+    row.querySelector('.open').setAttribute('aria-label', `Edit ${name}`);
+    row.querySelector('.open').addEventListener('click', () => openEdit(wd, s.slotId));
     row.querySelector('.del').setAttribute('aria-label', `Remove ${name}`);
     row.querySelector('.del').addEventListener('click', () => remove(wd, s.slotId, name));
     list.append(row);
@@ -287,6 +292,37 @@ function renderPlan(wd) {
       ? `${String(Math.min(+last.slice(0, 2) + 1, 23)).padStart(2, '0')}:${last.slice(3)}`
       : '09:00';
   }
+  renderChips(wd);
+}
+
+// One tap adds a quick pick to this day; the last chip opens the list to change them.
+function renderChips(wd) {
+  const chips = el('chips');
+  chips.replaceChildren();
+  for (const p of [...presets()].sort((a, b) => a.time.localeCompare(b.time))) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    const t = formatTime(p.time);
+    const name = document.createElement('span');
+    name.textContent = p.name;
+    const time = document.createElement('span');
+    time.className = 'chip-time';
+    time.textContent = `${t.hm}${t.ap === 'AM' ? 'a' : 'p'}`;
+    b.append('+ ', name, time);
+    b.setAttribute('aria-label', `Add ${p.name} at ${t.hm} ${t.ap} to ${DAY_NAMES[wd]}`);
+    b.addEventListener('click', () => addSlot(wd, p.time, p.name));
+    chips.append(b);
+  }
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.className = 'chip chip-edit';
+  edit.textContent = presets().length ? 'Edit picks' : '+ Quick picks';
+  edit.addEventListener('click', openPicks);
+  chips.append(edit);
+}
+
+function renderNames() {
   const names = el('names');
   names.replaceChildren();
   for (const n of [...new Set(Object.values(data.activities).map(a => a.name))].sort()) {
@@ -299,7 +335,9 @@ function renderPlan(wd) {
 function render() {
   if (!data) return;
   renderTabs();
+  renderNames();
   el('add').hidden = view === 'today';
+  el('chips').hidden = view === 'today';
   if (view === 'today') renderToday(); else renderPlan(view);
 }
 
@@ -333,27 +371,120 @@ async function toggle(item) {
 }
 
 async function remove(wd, slotId, name) {
-  if (!confirm(`Remove "${name}" from ${DAY_NAMES[wd]}?`)) return;
+  if (!confirm(`Remove "${name}" from every ${DAY_NAMES[wd]}?`)) return;
   data.template.days[wd] = (data.template.days[wd] || []).filter(s => s.slotId !== slotId);
   render();
   await write('/api/remove', { weekday: wd, slotId });
 }
 
 el('add-time').addEventListener('input', () => { el('add-time').dataset.touched = '1'; });
+function flash(text) {
+  banner(text);
+  setTimeout(() => { if (el('banner').textContent === text) { banner(''); showPending(); } }, 2200);
+}
+
+async function addSlot(wd, time, name) {
+  name = name.trim().replace(/\s+/g, ' ');
+  if (!data || !name || !/^\d\d:\d\d$/.test(time)) return;
+  // Same name = same activity (shared streak); the PC makes the same call when it gets this.
+  let activityId = Object.keys(data.activities).find(id => norm(data.activities[id].name) === norm(name));
+  const day = data.template.days[wd] = data.template.days[wd] || [];
+  if (activityId && day.some(s => s.activityId === activityId && s.time === time)) {
+    flash(`${name} is already on ${DAY_NAMES[wd]} at that time`);
+    return;
+  }
+  if (!activityId) { activityId = newId(); data.activities[activityId] = { name }; }
+  const slotId = newId();
+  day.push({ slotId, activityId, time });
+  render();
+  await write('/api/add', { weekday: wd, time, name, slotId });
+}
+
 el('add').addEventListener('submit', async e => {
   e.preventDefault();
-  const name = el('add-name').value.trim().replace(/\s+/g, ' ');
+  if (view === 'today') return;
+  const name = el('add-name').value;
   const time = el('add-time').value;
-  if (!data || !name || !/^\d\d:\d\d$/.test(time) || view === 'today') return;
-  // Same name = same activity (shared streak); the PC makes the same call when it gets this.
-  const slotId = newId();
-  let activityId = Object.keys(data.activities).find(id => norm(data.activities[id].name) === norm(name));
-  if (!activityId) { activityId = newId(); data.activities[activityId] = { name }; }
-  (data.template.days[view] = data.template.days[view] || []).push({ slotId, activityId, time });
   el('add-name').value = '';
   delete el('add-time').dataset.touched;
+  await addSlot(view, time, name);
+});
+
+// ---- edit one activity (that weekday, every week) ---------------------------------
+let editing = null;   // { wd, slotId }
+function openEdit(wd, slotId) {
+  const slot = (data.template.days[wd] || []).find(s => s.slotId === slotId);
+  if (!slot) return;
+  editing = { wd, slotId };
+  el('edit-sub').textContent = `Every ${DAY_NAMES[wd]}`;
+  el('edit-time').value = slot.time;
+  el('edit-name').value = (data.activities[slot.activityId] || {}).name || '';
+  el('edit').hidden = false;
+}
+function closeEdit() { editing = null; el('edit').hidden = true; }
+el('edit-cancel').addEventListener('click', closeEdit);
+el('edit').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!editing) return;
+  const { wd, slotId } = editing;
+  const name = el('edit-name').value.trim().replace(/\s+/g, ' ');
+  const time = el('edit-time').value;
+  if (!name || !/^\d\d:\d\d$/.test(time)) return;
+  closeEdit();
+  const slot = (data.template.days[wd] || []).find(s => s.slotId === slotId);
+  if (!slot) return;
+  // Shown now with the editor's own naming rule; the PC applies the same rule when it saves.
+  const r = resolveActivity(data.activities, data.template, slotId, name, newId());
+  data.activities = r.activities;
+  slot.activityId = r.activityId;
+  slot.time = time;
   render();
-  await write('/api/add', { weekday: view, time, name, slotId });
+  await write('/api/edit', { weekday: wd, slotId, time, name });
+});
+el('edit-delete').addEventListener('click', () => {
+  if (!editing) return;
+  const { wd, slotId } = editing;
+  const slot = (data.template.days[wd] || []).find(s => s.slotId === slotId);
+  const name = slot ? (data.activities[slot.activityId] || {}).name || '' : '';
+  closeEdit();
+  remove(wd, slotId, name);
+});
+
+// ---- quick picks ------------------------------------------------------------------
+const presets = () => (data && Array.isArray(data.presets) ? data.presets : []);
+function renderPicks() {
+  const list = el('picks-list');
+  list.replaceChildren();
+  for (const p of [...presets()].sort((a, b) => a.time.localeCompare(b.time))) {
+    const row = el('plan-tpl').content.firstElementChild.cloneNode(true);
+    fillTime(row, p.time);
+    row.querySelector('.name').textContent = p.name;
+    row.querySelector('.open').disabled = true;
+    row.querySelector('.del').setAttribute('aria-label', `Remove ${p.name} from quick picks`);
+    row.querySelector('.del').addEventListener('click', () => savePicks(presets().filter(x => x !== p)));
+    list.append(row);
+  }
+}
+function openPicks() { renderPicks(); el('picks').hidden = false; }
+el('picks-done').addEventListener('click', () => { el('picks').hidden = true; render(); });
+async function savePicks(list) {
+  data.presets = list;
+  renderPicks();
+  render();
+  await write('/api/presets', { presets: list });
+}
+el('picks-add').addEventListener('submit', e => {
+  e.preventDefault();
+  const typed = el('picks-name').value.trim().replace(/\s+/g, ' ');
+  const time = el('picks-time').value;
+  if (!typed || !/^\d\d:\d\d$/.test(time)) return;
+  // "gym" picks your existing "Gym", spelled the way you first wrote it.
+  const known = Object.values(data.activities).find(a => norm(a.name) === norm(typed));
+  const name = known ? known.name : typed;
+  if (presets().length >= 30) { flash('30 quick picks is the most'); return; }
+  el('picks-name').value = '';
+  // One pick per name: adding Gym again just changes its time.
+  savePicks([...presets().filter(p => norm(p.name) !== norm(name)), { name, time }]);
 });
 
 // Fresh data whenever the page comes back, and every minute while it's open.

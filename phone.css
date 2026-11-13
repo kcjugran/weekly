@@ -182,3 +182,71 @@ input:focus { outline: none; border-color: var(--accent); }
   color: var(--gray-1);
 }
 .logout { display: block; margin: 32px auto 0; color: var(--gray-2); }
+
+/* ---- rows: tick + edit button, plan rows open the editor ---- */
+.row { display: flex; align-items: center; }
+.row .hit { flex: 1 1 auto; min-width: 0; }
+.more, .del {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  font-size: 20px; line-height: 1;
+  color: var(--gray-2);
+  border-radius: var(--radius-box);
+}
+.del { font-size: 24px; }
+.more:active, .del:active { color: var(--ink); background: var(--line); }
+.open {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 8px 2px;
+}
+.open:disabled { cursor: default; }
+.row.plan { padding: 0; min-height: 0; }
+
+/* ---- quick-pick chips ---- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.chip {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  height: 40px; padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--ink);
+  font-size: 15px;
+}
+.chip:active { background: var(--accent); color: var(--accent-ink); }
+.chip-time { font-size: 12px; color: var(--gray-1); font-variant-numeric: tabular-nums; }
+.chip:active .chip-time { color: var(--accent-ink); }
+.chip-edit { border-color: var(--line); color: var(--gray-1); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* ---- sheets (edit one activity / quick picks) ---- */
+.sheet {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: calc(24px + env(safe-area-inset-top)) max(16px, calc(50% - 280px)) 24px;
+  background: var(--bg);
+  overflow: auto;
+  z-index: 5;
+}
+.sheet-title {
+  margin: 0;
+  font-size: 40px; font-weight: 700; font-stretch: 75%;
+  letter-spacing: -0.02em; line-height: 0.92; text-transform: uppercase;
+}
+.sheet .sub { margin: 0 0 8px; }
+.sheet label { margin-top: 6px; font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray-1); }
+.sheet > input { width: 100%; }
+.sheet-actions { display: flex; gap: 8px; margin-top: 12px; }
+.sheet-actions button { flex: 1 1 0; }
+.primary, .quiet, .danger {
+  height: 48px; padding: 0 18px;
+  border-radius: var(--radius-box);
+  font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.primary { background: var(--accent); color: var(--accent-ink); }
+.quiet { border: 1px solid var(--line); color: var(--gray-1); }
+.danger { margin-top: 8px; color: #ff8a8a; border: 1px solid rgba(255, 138, 138, 0.3); }

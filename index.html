@@ -25,6 +25,7 @@
   <p id="banner" class="banner" role="status" hidden></p>
 
   <main>
+    <div id="chips" class="chips" hidden></div>
     <ul id="list" class="list"></ul>
     <p id="empty" class="empty" hidden></p>
 
@@ -38,6 +39,34 @@
   </main>
 
   <button id="logout" class="logout" type="button" hidden>Log out</button>
+
+  <!-- Edit one activity (applies to that weekday, every week) -->
+  <form id="edit" class="sheet" autocomplete="off" hidden>
+    <h2 class="sheet-title">Edit</h2>
+    <p id="edit-sub" class="sub"></p>
+    <label for="edit-time">Time</label>
+    <input id="edit-time" type="time" required>
+    <label for="edit-name">Activity</label>
+    <input id="edit-name" list="names" maxlength="80" required enterkeyhint="done">
+    <div class="sheet-actions">
+      <button type="submit" class="primary">Save</button>
+      <button id="edit-cancel" type="button" class="quiet">Cancel</button>
+    </div>
+    <button id="edit-delete" type="button" class="danger">Delete from this day</button>
+  </form>
+
+  <!-- Quick picks: the activities you add most, one tap on any day tab -->
+  <div id="picks" class="sheet" hidden>
+    <h2 class="sheet-title">Quick picks</h2>
+    <p class="sub">One tap on a day adds them at this time</p>
+    <ul id="picks-list" class="list"></ul>
+    <form id="picks-add" class="add" autocomplete="off">
+      <input id="picks-time" type="time" value="07:00" required aria-label="Time">
+      <input id="picks-name" list="names" placeholder="Activity" maxlength="80" required enterkeyhint="done" aria-label="Activity">
+      <button type="submit">Add</button>
+    </form>
+    <div class="sheet-actions"><button id="picks-done" type="button" class="primary">Done</button></div>
+  </div>
 
   <form id="gate" class="gate" hidden>
     <h2 id="gate-title" class="gate-title">Log in</h2>
@@ -62,12 +91,14 @@
       <span class="time"><span class="hm"></span><span class="ap"></span></span>
       <span class="name"></span>
       <span class="streak"><span class="n"></span></span>
-    </button></li>
+    </button><button class="more" type="button">&hellip;</button></li>
   </template>
   <template id="plan-tpl">
     <li class="row plan">
-      <span class="time"><span class="hm"></span><span class="ap"></span></span>
-      <span class="name"></span>
+      <button class="open" type="button">
+        <span class="time"><span class="hm"></span><span class="ap"></span></span>
+        <span class="name"></span>
+      </button>
       <button class="del" type="button" aria-label="Remove">&times;</button>
     </li>
   </template>
