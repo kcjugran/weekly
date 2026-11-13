@@ -218,7 +218,7 @@ function renderTabs() {
     b.setAttribute('aria-selected', String(v === view));
     b.textContent = v === 'today' ? 'Today' : v[0];   // M T W T F S S: all fit, no sideways scroll
     if (v !== 'today') b.setAttribute('aria-label', DAY_NAMES[v]);
-    b.addEventListener('click', () => { view = v; render(); });
+    b.addEventListener('click', () => { view = v; setAddOpen(false); render(); });
     tabs.append(b);
   }
 }
@@ -400,6 +400,17 @@ async function addSlot(wd, time, name) {
   render();
   await write('/api/add', { weekday: wd, time, name, slotId });
 }
+
+// The add row stays a small + until tapped; it stays open after adding, so several go in a row.
+function setAddOpen(open) {
+  el('add').classList.toggle('open', open);
+  el('add-toggle').textContent = open ? '×' : '+';
+  el('add-toggle').setAttribute('aria-expanded', String(open));
+  el('add-toggle').setAttribute('aria-label', open ? 'Close' : 'Add activity');
+  if (open) el('add-name').focus();
+}
+el('add-toggle').addEventListener('click', () => setAddOpen(!el('add').classList.contains('open')));
+el('add-name').addEventListener('keydown', e => { if (e.key === 'Escape') setAddOpen(false); });
 
 el('add').addEventListener('submit', async e => {
   e.preventDefault();

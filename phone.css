@@ -151,7 +151,25 @@ input {
   color-scheme: dark;
 }
 input:focus { outline: none; border-color: var(--accent); }
-#add-time { flex: 0 0 auto; width: 118px; }
+#add-time { flex: 0 0 auto; width: 104px; }
+
+/* Collapsed: just a small round +. Open: × then time, name, Add. */
+.add:not(.open) .add-field { display: none; }
+.add .add-toggle {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  align-self: center;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  background: none;
+  color: var(--accent);
+  font-size: 24px; font-weight: 400; line-height: 1;
+  letter-spacing: 0;
+  padding: 0;
+}
+.add .add-toggle:active { background: var(--accent); color: var(--accent-ink); }
+.add.open .add-toggle { border-color: var(--line); color: var(--gray-1); }
+#add { gap: 6px; }
 #add-name { flex: 1 1 auto; }
 .add button { flex: 0 0 auto; }
 .add button:disabled { opacity: 0.5; }

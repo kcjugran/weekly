@@ -30,11 +30,13 @@
     <p id="empty" class="empty" hidden></p>
 
     <form id="add" class="add" autocomplete="off" hidden>
-      <input id="add-time" type="time" required aria-label="Time">
-      <input id="add-name" list="names" placeholder="Add activity" maxlength="80" required
+      <button id="add-toggle" class="add-toggle" type="button" aria-expanded="false"
+              aria-label="Add activity">+</button>
+      <input id="add-time" class="add-field" type="time" required aria-label="Time">
+      <input id="add-name" class="add-field" list="names" placeholder="Activity" maxlength="80" required
              enterkeyhint="done" aria-label="Activity">
       <datalist id="names"></datalist>
-      <button type="submit">Add</button>
+      <button class="add-field" type="submit">Add</button>
     </form>
   </main>
 
