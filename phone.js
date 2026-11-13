@@ -313,21 +313,14 @@ function renderChips(wd) {
   edit.className = 'chip chip-edit';
   edit.textContent = presets().length ? 'Edit picks' : '+ Quick picks';
   edit.addEventListener('click', openPicks);
-  const auto = document.createElement('button');
-  auto.type = 'button';
-  auto.className = 'chip chip-edit';
-  auto.textContent = 'Autofill';
-  auto.addEventListener('click', openSaved);
-  chips.append(edit, auto);
+  chips.append(edit);
 }
 
 function renderNames() {
   const names = el('names');
   names.replaceChildren();
-  // Only names he saved (plus his quick picks): not every one-off or mistype ever typed.
-  const seen = new Map();
-  for (const n of [...savedNames(), ...presets().map(p => p.name)]) if (!seen.has(norm(n))) seen.set(norm(n), n);
-  for (const n of [...seen.values()].sort((a, b) => a.localeCompare(b))) {
+  // Only his quick picks: not every one-off or mistype ever typed.
+  for (const n of [...new Set(presets().map(p => p.name))].sort((a, b) => a.localeCompare(b))) {
     const o = document.createElement('option');
     o.value = n;
     names.append(o);
@@ -442,7 +435,7 @@ function setAddOpen(open) {
 el('add-toggle').addEventListener('click', () => setAddOpen(!el('add').classList.contains('open')));
 const setAddSave = on => {
   el('add-save').setAttribute('aria-pressed', String(on));
-  el('add-save').setAttribute('aria-label', on ? 'Will be saved to autofill' : 'Save to autofill');
+  el('add-save').setAttribute('aria-label', on ? 'Will be saved to quick picks' : 'Save to quick picks');
 };
 el('add-save').addEventListener('click', () => setAddSave(el('add-save').getAttribute('aria-pressed') !== 'true'));
 el('add-name').addEventListener('keydown', e => { if (e.key === 'Escape') setAddOpen(false); });
@@ -457,7 +450,7 @@ el('add').addEventListener('submit', async e => {
   setAddTime(false);          // next one starts without a time again
   setAddSave(false);          // and not saved, unless asked again
   await addSlot(view, time, name);
-  if (save) await saveName(name);
+  if (save) await savePick(name, time);
 });
 
 // ---- edit one activity (that weekday, every week) ---------------------------------
@@ -532,49 +525,18 @@ el('picks-add').addEventListener('submit', e => {
   // "gym" picks your existing "Gym", spelled the way you first wrote it.
   const known = Object.values(data.activities).find(a => norm(a.name) === norm(typed));
   const name = known ? known.name : typed;
-  if (presets().length >= 30) { flash('30 quick picks is the most'); return; }
   el('picks-name').value = '';
   setPickTime(false);
-  // One pick per name: adding Gym again just changes its time.
-  savePicks([...presets().filter(p => norm(p.name) !== norm(name)), { name, time }]);
+  savePick(name, time);
 });
-
-// ---- autofill: names he chose to save --------------------------------------------
-const savedNames = () => (data && Array.isArray(data.saved) ? data.saved : []);
-async function setSaved(list) {
-  data.saved = list;
-  renderSaved();
-  render();
-  await write('/api/saved', { saved: list });
-}
-async function saveName(typed) {
+// One pick per name: saving Gym again just changes its time.
+function savePick(typed, time) {
   const name = typed.trim().replace(/\s+/g, ' ');
-  if (!name || savedNames().some(n => norm(n) === norm(name))) return;
-  if (savedNames().length >= 200) { flash('Autofill is full (200)'); return; }
-  await setSaved([...savedNames(), name]);
+  if (!name) return;
+  const others = presets().filter(p => norm(p.name) !== norm(name));
+  if (others.length >= 200) { flash('200 quick picks is the most'); return; }
+  return savePicks([...others, { name, time }]);
 }
-function renderSaved() {
-  const list = el('saved-list');
-  list.replaceChildren();
-  el('saved-list').dataset.empty = savedNames().length ? '' : 'Nothing saved yet';
-  for (const n of [...savedNames()].sort((a, b) => a.localeCompare(b))) {
-    const row = el('plan-tpl').content.firstElementChild.cloneNode(true);
-    row.querySelector('.time').remove();
-    row.querySelector('.name').textContent = n;
-    row.querySelector('.open').disabled = true;
-    row.querySelector('.del').setAttribute('aria-label', `Remove ${n} from autofill`);
-    row.querySelector('.del').addEventListener('click', () => setSaved(savedNames().filter(x => x !== n)));
-    list.append(row);
-  }
-}
-function openSaved() { renderSaved(); el('saved').hidden = false; }
-el('saved-done').addEventListener('click', () => { el('saved').hidden = true; render(); });
-el('saved-add').addEventListener('submit', async e => {
-  e.preventDefault();
-  const name = el('saved-name').value;
-  el('saved-name').value = '';
-  await saveName(name);
-});
 
 // Fresh data whenever the page comes back, and every minute while it's open.
 const refresh = () => { if (!document.hidden && el('gate').hidden) load(); };

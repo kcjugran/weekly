@@ -34,7 +34,7 @@
               aria-label="Add activity">+</button>
       <button id="add-clock" class="clock add-field" type="button" aria-pressed="false" aria-label="Set a time"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <button id="add-save" class="clock add-field" type="button" aria-pressed="false"
-              aria-label="Save to autofill"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 4.5h10v15l-5-3.6-5 3.6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              aria-label="Save to quick picks"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 4.5h10v15l-5-3.6-5 3.6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
       <input id="add-name" class="add-field" list="names" placeholder="Activity" maxlength="80" required
              enterkeyhint="done" aria-label="Activity">
       <datalist id="names"></datalist>
@@ -67,7 +67,7 @@
   <!-- Quick picks: the activities you add most, one tap on any day tab -->
   <div id="picks" class="sheet" hidden>
     <h2 class="sheet-title">Quick picks</h2>
-    <p class="sub">One tap on a day adds them</p>
+    <p class="sub">One tap on a day adds them. Also suggested as you type.</p>
     <ul id="picks-list" class="list"></ul>
     <form id="picks-add" class="add" autocomplete="off">
       <button id="picks-clock" class="clock" type="button" aria-pressed="false" aria-label="Set a time"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
@@ -76,18 +76,6 @@
       <input id="picks-time" class="time-line" type="time" aria-label="Time" hidden>
     </form>
     <div class="sheet-actions"><button id="picks-done" type="button" class="primary">Done</button></div>
-  </div>
-
-  <!-- Autofill: only names he chose to save (mistypes and one-offs stay out) -->
-  <div id="saved" class="sheet" hidden>
-    <h2 class="sheet-title">Autofill</h2>
-    <p class="sub">Suggested as you type, with your quick picks</p>
-    <ul id="saved-list" class="list"></ul>
-    <form id="saved-add" class="add" autocomplete="off">
-      <input id="saved-name" placeholder="Activity" maxlength="80" required enterkeyhint="done" aria-label="Activity">
-      <button type="submit">Save</button>
-    </form>
-    <div class="sheet-actions"><button id="saved-done" type="button" class="primary">Done</button></div>
   </div>
 
   <form id="gate" class="gate" hidden>
